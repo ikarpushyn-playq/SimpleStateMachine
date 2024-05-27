@@ -1,41 +1,31 @@
-using States;
-using UnityEditor;
+using StateMachine.States;
 using UnityEngine;
 
 public sealed class Bootstrap : MonoBehaviour
 {
-    void Start()
+    private async void Start()
     {
-        var stateMachine = new StateMachine();
-        
-        // add states
-        stateMachine.AddState<LobbyState, LobbyState.Params, LobbyState.Result>();
-        stateMachine.AddState<GameState, GameState.Params, GameState.Result>();
-        
-        // complete events
-        stateMachine.WhenComplete<LobbyState>(state =>
-        {
-            UnityEngine.Debug.Log($"LobbyState :: Complete :: {state.StateResult.Random}");
-            if (state.StateResult.Random > 0.5f)
-            {
-                stateMachine.SetState<GameState>(new GameState.Params(2));
-            }
-            else
-            {
-                
-            }
-        });
-        
-        stateMachine.WhenComplete<GameState>(state =>
-        {
-            UnityEngine.Debug.Log($"GameState :: Complete :: {state.StateResult.Status}");
-            
-            LobbyState.Result lobbyResult = stateMachine.GetState<LobbyState>().StateResult;
-            UnityEngine.Debug.Log($"lobbyResult :: {lobbyResult.Random}");
-        });
-        
+        var stateMachine = new StateMachine.StateMachine();
+
+        stateMachine.AddState<LobbyState>();
+        stateMachine.AddState<GameState>();
+        stateMachine.AddState<WinState>();
+
+        stateMachine
+            .Transition<LobbyState, GameState>()
+            .WhenCompleteResult((LobbyState.Result result) => result.Random > 0.7f)
+            .WithParams(new GameState.Params(2));
+
+        stateMachine
+            .Transition<LobbyState, WinState>()
+            .WhenCompleteResult((LobbyState.Result result) => result.Random <= 0.7f)
+            .WithParams((LobbyState.Result result) => new WinState.Params(result.Random));
+
+        stateMachine
+            .Transition<WinState, LobbyState>()
+            .WithParams(new LobbyState.Params(88));
 
         // set state
-        stateMachine.SetState<LobbyState>(new LobbyState.Params(1));
+        await stateMachine.Start<LobbyState>(new LobbyState.Params(1));
     }
 }
